@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release-desktop
+      - appx
 
 jobs:
   build:
@@ -14,8 +15,8 @@ jobs:
     strategy:
       matrix:
         os:
-          - macos-15-intel
-          - ubuntu-latest
+          # - macos-15
+          # - ubuntu-latest
           - windows-latest
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -33,6 +34,18 @@ jobs:
           bun install
           bun bundle
 
+      - name: build portable
+        if: startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'win')
+        run: |
+          bun electron-vite build
+        env:
+          VITE_BUILD_TARGET: portable
+
+      - name: pkg appx on windows
+        if: startsWith(matrix.os, 'win')
+        run: |
+          bun electron-builder --publish never --win appx
+
       - name: build
         run: bun electron-vite build
 
@@ -43,7 +56,7 @@ jobs:
           echo -n "${{ secrets.APPLICATION_CERT }}" | base64 -d > application.cer
           sudo security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain installer.cer
           sudo security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain application.cer
-          bun electron-builder --publish never
+          bun electron-builder --x64 --arm64 --publish never
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
 
@@ -59,6 +72,7 @@ jobs:
             desktop/dist/latest.yml
             desktop/dist/latest-*.yml
             desktop/dist/*.AppImage
+            desktop/dist/*.appx
             desktop/dist/*.blockmap
             desktop/dist/*.dmg
             desktop/dist/*.exe
@@ -85,6 +99,7 @@ jobs:
         with:
           body_path: desktop/changelogs/${{ env.TAG }}.txt
           files: dist/*
-          repository: nonbili/Nora-Desktop
+          # repository: nonbili/Nora-Desktop
+          repository: rnons/nt-test
           token: ${{ secrets.GH_RELEASE_TOKEN }}
           tag_name: ${{ env.TAG }}
